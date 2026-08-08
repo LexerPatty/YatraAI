@@ -8,6 +8,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+# ADD NESTED ASYNCIO IMPORT
+import nest_asyncio
+nest_asyncio.apply()
+
 from main import run_travel_agent
 
 BASE_DIR = Path(__file__).resolve().parent

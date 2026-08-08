@@ -1,0 +1,3 @@
+Why we use async in MCP?
+
+In Model Context Protocol (MCP) code, we use asynchronous programming (async/await) to prevent long-running tasks from freezing the server and blocking the AI agent. Because MCP servers handle input/output (1/0) heavy operations, standard synchronous code would force the LLM to wait completely idle for one task to finish before it could do anything else. Using async allows the server to remain highly responsive and process multiple instructions concurrently
