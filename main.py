@@ -21,7 +21,7 @@ from langchain_groq import ChatGroq
 # from tools.tavily_tool import tavily_search
 from tools.flight_tool import search_flights
 
-from mcp_client_test import tavily_mcp_search
+from mcp_client import tavily_mcp_search , extract_destination , forecast_mcp_search , weather_mcp_search
 
 
 load_dotenv()
@@ -72,6 +72,7 @@ class TravelState(TypedDict):
     hotel_results: str
     itinerary: str
     llm_calls: int
+    weather_results: str
 
 
 
@@ -114,6 +115,38 @@ def hotel_agent(state: TravelState):
 
 
 
+# =========================
+# Weather Agent
+# =========================
+def weather_agent(state: TravelState):
+
+    city = extract_destination(state["user_query"])
+
+    weather_data = asyncio.run(
+        weather_mcp_search(city)
+    )
+
+    forecast_data = asyncio.run(
+        forecast_mcp_search(city)
+    )
+
+    return {
+        "weather_results": f"""
+        Current Weather:
+        {weather_data}
+
+        Forecast:
+        {forecast_data}
+        """,
+        "messages": [
+            AIMessage(
+                content="Weather information fetched"
+            )
+        ]
+    }
+
+
+
 
 # =========================
 # Itinerary Agent
@@ -131,6 +164,9 @@ Flight Results:
 
 Hotel Results:
 {state['hotel_results']}
+
+Weather Results:
+{state['weather_results']}
 
 Make the itinerary practical, budget-aware, and easy to follow.
 """
@@ -165,6 +201,9 @@ Flights:
 Hotels:
 {state['hotel_results']}
 
+Weather:
+{state['weather_results']}
+
 Itinerary:
 {state['itinerary']}
 
@@ -173,13 +212,16 @@ Format the final answer beautifully using these sections:
 1. Trip Summary
 2. Flight Information
 3. Hotel Suggestions
-4. Day-by-Day Itinerary
-5. Estimated Budget
-6. Final Recommendations
+4. Weather Information
+5. Day-by-Day Itinerary
+6. Estimated Budget
+7. Final Recommendations
+
 
 Important:
 - Be clear and practical.
 - Mention that live flight API may not provide ticket prices if pricing is unavailable.
+- Include weather-based travel advice.
 - Keep the response useful for real travel planning.
 """
 
@@ -203,12 +245,14 @@ graph = StateGraph(TravelState)
 
 graph.add_node("flight_agent", flight_agent)
 graph.add_node("hotel_agent", hotel_agent)
+graph.add_node("weather_agent", weather_agent)
 graph.add_node("itinerary_agent", itinerary_agent)
 graph.add_node("final_agent", final_agent)
 
 graph.add_edge(START, "flight_agent")
 graph.add_edge("flight_agent", "hotel_agent")
-graph.add_edge("hotel_agent", "itinerary_agent")
+graph.add_edge("hotel_agent", "weather_agent")
+graph.add_edge("weather_agent", "itinerary_agent")
 graph.add_edge("itinerary_agent", "final_agent")
 graph.add_edge("final_agent", END)
 
@@ -273,6 +317,7 @@ def run_travel_agent(user_input: str, thread_id: str | None = None):
         "answer": final_answer,
         "flight_results": result.get("flight_results", ""),
         "hotel_results": result.get("hotel_results", ""),
+        "weather_results": result.get("weather_results", ""),
         "itinerary": result.get("itinerary", ""),
         "llm_calls": result.get("llm_calls", 0),
     }
